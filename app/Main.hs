@@ -1,20 +1,28 @@
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Main (main) where
+ 
+import Import
+import Run
+import RIO.Process
+import Options.Applicative.Simple
+import qualified Paths_yagbe
 
-import Graphics.UI.Gtk hiding (rectangle)
+import Prelude (print)
+import qualified Graphics.UI.Gtk as GTK 
+import Graphics.UI.Gtk ( AttrOp(..) )
 import Graphics.Rendering.Cairo hiding (x,y)
 import Graphics.Rendering.Cairo.Types (PixelData)
 
-import Prelude
-import Control.Applicative
+--import Prelude
+--import Control.Applicative
 import Control.Monad (void)
-import Data.IORef
+--import Data.IORef
 import Foreign (allocaArray)
 import Foreign.Storable (Storable(..))
 import Foreign.C (CUChar)
 import Data.Time.Clock (getCurrentTime,diffUTCTime)
-
-import Lib
 
 scaleFactor :: Int
 scaleFactor = 3
@@ -49,34 +57,56 @@ keyPress = do
 
 --keyPress :: _
 keyPress w = void $ do
-  let kp = on w keyPressEvent . tryEvent
+  let kp = GTK.on w GTK.keyPressEvent . GTK.tryEvent
 
   kp $ do
-    "q" <- eventKeyName
-    liftIO $ mainQuit
+    "q" <- GTK.eventKeyName
+    liftIO $ GTK.mainQuit
 
   kp $ do
-    "a" <- eventKeyName
+    "a" <- GTK.eventKeyName
     liftIO $ print "a"
 
   kp $ do
-    kv <- eventKeyName
+    kv <- GTK.eventKeyName
     liftIO $ print kv
 
 destroyEventHandler :: IO ()
 destroyEventHandler = do
-  mainQuit
-
+  GTK.mainQuit
+ 
 main :: IO ()
-main = do  
-  initGUI
-  window <- windowNew
-  canvas <- drawingAreaNew
-  set window [windowDefaultWidth := w*scaleFactor,
-              windowDefaultHeight := h*scaleFactor,
+main = do
+  (options, ()) <- simpleOptions
+    $(simpleVersion Paths_yagbe.version)
+    "Header for command line arguments"
+    "Program description, also for command line arguments"
+    (Options
+       <$> switch ( long "verbose"
+                 <> short 'v'
+                 <> help "Verbose output?"
+                  )
+    )
+    empty
+  lo <- logOptionsHandle stderr (optionsVerbose options)
+  pc <- mkDefaultProcessContext
+  withLogFunc lo $ \lf ->
+    let app = App
+          { appLogFunc = lf
+          , appProcessContext = pc
+          , appOptions = options
+          }
+     in runRIO app $ liftIO main' --run
+
+main' = do  
+  GTK.initGUI
+  window <- GTK.windowNew
+  canvas <- GTK.drawingAreaNew
+  GTK.set window [GTK.windowDefaultWidth := w*scaleFactor,
+              GTK.windowDefaultHeight := h*scaleFactor,
               --windowWindowPosition := WinPosCenter,
-              windowTitle := ("YAGBE"::String),
-              containerChild := canvas]
+              GTK.windowTitle := ("YAGBE"::String),
+              GTK.containerChild := canvas]
 
 
   -- create the Pixbuf
@@ -96,16 +126,16 @@ main = do
     framesRef <- newIORef 0
     lastTimeRef <- newIORef =<< getCurrentTime
 
-    idleAdd (updateBlue blueRef dirRef lastTimeRef framesRef pbData canvas) priorityLow
+    GTK.idleAdd (updateBlue blueRef dirRef lastTimeRef framesRef pbData canvas) GTK.priorityLow
     
-    canvas `on` draw $ updateCanvas pbData
-    window `on` objectDestroy $ destroyEventHandler
+    GTK.on canvas GTK.draw (updateCanvas pbData)
+    GTK.on window GTK.objectDestroy destroyEventHandler
     keyPress window
     --onDestroy window mainQuit 
     --boxPackStart contain canvas PackGrow 0
-    widgetShow canvas
-    widgetShow window
-    mainGUI
+    GTK.widgetShow canvas
+    GTK.widgetShow window
+    GTK.mainGUI
 
 updateBlue blueRef dirRef lastTimeRef framesRef pbData canvas = do
   blue <- readIORef blueRef
@@ -117,7 +147,7 @@ updateBlue blueRef dirRef lastTimeRef framesRef pbData canvas = do
     
   -- arrange for the canvas to be redrawn now that we've changed
   -- the Pixbuf
-  widgetQueueDraw canvas
+  GTK.widgetQueueDraw canvas
     
   -- update the blue state ready for next time
   dir <- readIORef dirRef

@@ -1,10 +1,10 @@
 name:                yagbe
 version:             0.1.0.0
-github:              "blueonyx/yagbe"
+github:              blueonyx/yagbe
 license:             BSD-3-Clause
-author:              "martin hilbig"
-maintainer:          "martin.hilbig@mhilbig.de"
-copyright:           "2025 martin hilbig"
+author:              martin hilbig
+maintainer:          martin@mhilbig.de
+copyright:           copyright (c) 2025 martin hilbig
 
 extra-source-files:
 - README.md
@@ -17,10 +17,11 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/blueonyx/yagbe#readme>
+description:         Please see the README on Github at <https://github.com/blueonyx/yagbe#readme>
 
 dependencies:
-- base >= 4.7 && < 5
+- base >= 4.11 && < 10
+- rio >= 0.1.12.0
 - gtk3
 - cairo
 - time
@@ -43,20 +44,24 @@ executables:
   yagbe-exe:
     main:                Main.hs
     source-dirs:         app
+    dependencies:
+    - yagbe
+    - optparse-simple
+
     ghc-options:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
-    dependencies:
-    - yagbe
 
 tests:
   yagbe-test:
     main:                Spec.hs
     source-dirs:         test
+    dependencies:
+    - yagbe
+    - hspec
+
     ghc-options:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
-    dependencies:
-    - yagbe

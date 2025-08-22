@@ -1,4 +1,4 @@
-# Changelog for `gbemu`
+# Changelog for `yagbe`
 
 All notable changes to this project will be documented in this file.
 

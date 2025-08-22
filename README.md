@@ -1,15 +1,11 @@
-# yagbe - yet another game boy emulator
+# yagbe
 
-just some selected stuff to play around with haskell and gtk3
+## Execute
 
-# build
+* Get [stack](https://docs.haskellstack.org/en/stable/#how-to-install-stack)
+* Run `stack exec -- yagbe-exe` to see "We're inside the application!"
+* With `stack exec -- yagbe-exe --verbose` you will see the same message, with more logging.
 
-- get [stack](https://docs.haskellstack.org/en/stable/#how-to-install-stack)
+## Run tests
 
-- then
-
-    stack build
-
-- or just 
-
-    stack run
+`stack test`

@@ -6,12 +6,12 @@ cabal-version: 2.2
 
 name:           yagbe
 version:        0.1.0.0
-description:    Please see the README on GitHub at <https://github.com/blueonyx/yagbe#readme>
+description:    Please see the README on Github at <https://github.com/blueonyx/yagbe#readme>
 homepage:       https://github.com/blueonyx/yagbe#readme
 bug-reports:    https://github.com/blueonyx/yagbe/issues
 author:         martin hilbig
-maintainer:     martin.hilbig@mhilbig.de
-copyright:      2025 martin hilbig
+maintainer:     martin@mhilbig.de
+copyright:      copyright (c) 2025 martin hilbig
 license:        BSD-3-Clause
 license-file:   LICENSE
 build-type:     Simple
@@ -25,7 +25,10 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
+      Import
+      Run
+      Types
+      Util
   other-modules:
       Paths_yagbe
   autogen-modules:
@@ -34,9 +37,10 @@ library
       src
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
-      base >=4.7 && <5
+      base >=4.11 && <10
     , cairo
     , gtk3
+    , rio >=0.1.12.0
     , time
   default-language: Haskell2010
 
@@ -50,9 +54,11 @@ executable yagbe-exe
       app
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      base >=4.11 && <10
     , cairo
     , gtk3
+    , optparse-simple
+    , rio >=0.1.12.0
     , time
     , yagbe
   default-language: Haskell2010
@@ -61,6 +67,7 @@ test-suite yagbe-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      UtilSpec
       Paths_yagbe
   autogen-modules:
       Paths_yagbe
@@ -68,9 +75,11 @@ test-suite yagbe-test
       test
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      base >=4.11 && <10
     , cairo
     , gtk3
+    , hspec
+    , rio >=0.1.12.0
     , time
     , yagbe
   default-language: Haskell2010
