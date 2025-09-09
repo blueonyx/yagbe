@@ -1,13 +1,18 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE RecordWildCards #-}
 module Main (main) where
  
 import Import
 import Run
+import Events
+
 import RIO.Process
+import RIO.State
 import Options.Applicative.Simple
 import qualified Paths_yagbe
+import Control.Lens hiding (argument)
 
 import Prelude (print)
 import qualified Graphics.UI.Gtk as GTK 
@@ -19,62 +24,8 @@ import Graphics.Rendering.Cairo.Types (PixelData)
 --import Control.Applicative
 import Control.Monad (void)
 --import Data.IORef
-import Foreign (allocaArray)
-import Foreign.Storable (Storable(..))
-import Foreign.C (CUChar)
 import Data.Time.Clock (getCurrentTime,diffUTCTime)
 
-scaleFactor :: Int
-scaleFactor = 3
-
-w = 160
-h = 144
--- chan is 4 byte even for (1 byte unused)
-chan = 4
-row = w * chan
-stride = row
-
-{-keyPress :: EventM EKey Bool
-{-keyPress = do
-  kv <- eventKeyVal
-  tryEvent $ do
-    Just 'q' <- keyvalToChar kv
-    liftIO mainQuit
--}
-keyPress = do
-  tryEvent $ do
-    "q" <- eventKeyName
-    liftIO $ print "quit"
-    stopEvent
-  tryEvent $ do
-    "a" <- eventKeyName
-    liftIO $ print "a"
-    stopEvent
-  tryEvent $ do
-    kv <- eventKeyName
-    liftIO $ print kv
--}
-
---keyPress :: _
-keyPress w = void $ do
-  let kp = GTK.on w GTK.keyPressEvent . GTK.tryEvent
-
-  kp $ do
-    "q" <- GTK.eventKeyName
-    liftIO $ GTK.mainQuit
-
-  kp $ do
-    "a" <- GTK.eventKeyName
-    liftIO $ print "a"
-
-  kp $ do
-    kv <- GTK.eventKeyName
-    liftIO $ print kv
-
-destroyEventHandler :: IO ()
-destroyEventHandler = do
-  GTK.mainQuit
- 
 main :: IO ()
 main = do
   (options, ()) <- simpleOptions
@@ -82,100 +33,143 @@ main = do
     "Header for command line arguments"
     "Program description, also for command line arguments"
     (Options
-       <$> switch ( long "verbose"
+      <$> switch ( long "verbose"
                  <> short 'v'
                  <> help "Verbose output?"
                   )
+      <*> option auto 
+            ( long "scale"
+            <> short 's'
+            <> showDefault
+            <> value 3
+            <> metavar "INT"
+            <> help "Scale Factor (integer)"
+            )
     )
     empty
+  
+  let w = 160
+      h = 144
+      -- chan is 4 byte even for (1 byte unused)
+      chan = 4
+      row = w * chan
+      stride = row
+
+  -- initialize the Pixbuf
+  pbData <- liftIO $ mallocArray (w * h * chan)
+
+  doFromTo 0 (h-1) $ \y ->
+    doFromTo 0 (w-1) $ \x -> do
+      --pokeByteOff pbData (1+x*chan+y*row) (fromIntegral 255 :: CUChar)
+      pokeByteOff pbData (2+x*chan+y*row) (fromIntegral x :: CUChar)
+      pokeByteOff pbData (1+x*chan+y*row) (fromIntegral y :: CUChar)
+      pokeByteOff pbData (0+x*chan+y*row) (0 :: CUChar)
+
+  now <- getCurrentTime
+  
+  let initState = State {
+                    _stScaleFactor = optionsScaleFactor options,
+                    _stPixBuf = pbData,
+                    _stBlue = 0,
+                    _stDir = True,
+                    _stFrames = 0,
+                    _stLastTime = now
+                  }                   
+                  
   lo <- logOptionsHandle stderr (optionsVerbose options)
   pc <- mkDefaultProcessContext
-  withLogFunc lo $ \lf ->
-    let app = App
-          { appLogFunc = lf
-          , appProcessContext = pc
-          , appOptions = options
-          }
-     in runRIO app $ liftIO main' --run
-
-main' = do  
+  ref <- newSomeRef initState
+  
   GTK.initGUI
   window <- GTK.windowNew
   canvas <- GTK.drawingAreaNew
-  GTK.set window [GTK.windowDefaultWidth := w*scaleFactor,
-              GTK.windowDefaultHeight := h*scaleFactor,
+  GTK.set window [GTK.windowDefaultWidth := w*_stScaleFactor initState,
+              GTK.windowDefaultHeight := h*_stScaleFactor initState,
               --windowWindowPosition := WinPosCenter,
               GTK.windowTitle := ("YAGBE"::String),
               GTK.containerChild := canvas]
+  
+  withLogFunc lo $ \lf ->
+    let app = App
+          { _appLogFunc = lf
+          , _appProcessContext = pc
+          , _appOptions = options
+          , _appState = ref
+          , _appWidth  = w
+          , _appHeight = h
+          , _appChan  = chan
+          , _appRow = row
+          , _appStride = stride
+          , _appWindow = window
+          , _appCanvas = canvas
+          }
+     in runRIO app main' --run
 
-
-  -- create the Pixbuf
-  allocaArray (w * h * chan) $ \ pbData -> do
-
-    -- draw into the Pixbuf
-    doFromTo 0 (h-1) $ \y ->
-      doFromTo 0 (w-1) $ \x -> do
-        --pokeByteOff pbData (1+x*chan+y*row) (fromIntegral 255 :: CUChar)
-        pokeByteOff pbData (2+x*chan+y*row) (fromIntegral x :: CUChar)
-        pokeByteOff pbData (1+x*chan+y*row) (fromIntegral y :: CUChar)
-        pokeByteOff pbData (0+x*chan+y*row) (0 :: CUChar)
-
-    -- a function to update the Pixbuf
-    blueRef <- newIORef (0 :: CUChar)
-    dirRef <- newIORef True
-    framesRef <- newIORef 0
-    lastTimeRef <- newIORef =<< getCurrentTime
-
-    GTK.idleAdd (updateBlue blueRef dirRef lastTimeRef framesRef pbData canvas) GTK.priorityLow
+main' :: RIO App ()
+main' = do
+  app@(App  {..}) <- ask
+  st@(State {..}) <- get
+  
+  liftIO $ do
+    GTK.idleAdd (runRIO app updateBlue) GTK.priorityLow
     
-    GTK.on canvas GTK.draw (updateCanvas pbData)
-    GTK.on window GTK.objectDestroy destroyEventHandler
-    keyPress window
+    GTK.on _appCanvas GTK.draw (join $ runRIO app updateCanvas)
+    GTK.on _appWindow GTK.objectDestroy destroyEventHandler
+    keyPress _appWindow
     --onDestroy window mainQuit 
     --boxPackStart contain canvas PackGrow 0
-    GTK.widgetShow canvas
-    GTK.widgetShow window
+    GTK.widgetShow _appCanvas
+    GTK.widgetShow _appWindow
     GTK.mainGUI
+  
 
-updateBlue blueRef dirRef lastTimeRef framesRef pbData canvas = do
-  blue <- readIORef blueRef
+updateBlue :: RIO App Bool
+updateBlue = do
+  app@(App  {..}) <- ask
+  st@(State {..}) <- get
           
   -- print blue
-  doFromTo 0 (h-1) $ \y ->
-    doFromTo 0 (w-1) $ \x ->
-      pokeByteOff pbData (0+x*chan+y*row) blue  -- unchecked indexing
+  liftIO $ 
+    doFromTo 0 (_appHeight-1) $ \y ->
+      doFromTo 0 (_appWidth-1) $ \x ->
+        pokeByteOff _stPixBuf (0+x*_appChan+y*_appRow) _stBlue  -- unchecked indexing
     
   -- arrange for the canvas to be redrawn now that we've changed
   -- the Pixbuf
-  GTK.widgetQueueDraw canvas
+  liftIO $ GTK.widgetQueueDraw _appCanvas
     
   -- update the blue state ready for next time
-  dir <- readIORef dirRef
   let diff = 1
-  let blue' = if dir then blue+diff else blue-diff
-  if dir then
-    if blue<=maxBound-diff then writeIORef blueRef blue' else
-      writeIORef blueRef maxBound >> modifyIORef dirRef not
+  let blue' = if _stDir then _stBlue+diff else _stBlue-diff
+  if _stDir then
+    if _stBlue<=maxBound-diff then stBlue %= const blue' else do
+      stBlue %= const maxBound
+      stDir %= not
   else
-    if blue>=minBound+diff then writeIORef blueRef blue' else
-      writeIORef blueRef minBound >> modifyIORef dirRef not
+    if _stBlue>=minBound+diff then stBlue %= const blue' else do
+      stBlue %= const minBound
+      stDir %= not
       
-  lastTime <- readIORef lastTimeRef
-  now <- getCurrentTime
-  if diffUTCTime now lastTime >= 1.000 then do
-    print =<< readIORef framesRef
-    writeIORef framesRef 0
-    writeIORef lastTimeRef now
+  now <- liftIO $ getCurrentTime
+  if diffUTCTime now _stLastTime >= 1.000 then do
+    logInfo $ display _stFrames
+    stFrames %= const 0
+    stLastTime %= const now
   else do
-    modifyIORef framesRef (1+)
+    stFrames %= (1+)
   return True
 
-updateCanvas :: PixelData -> Render ()
-updateCanvas pb = do
-  scale (fromIntegral scaleFactor) (fromIntegral scaleFactor)
-  s <- liftIO $ createImageSurfaceForData pb FormatRGB24 w h stride
-  setSourceSurface s 0 0
-  paint
+--updateCanvas :: _ -- (MonadIO m) => m ()
+updateCanvas :: RIO App (Render ())
+updateCanvas = do
+  app@(App  {..}) <- ask
+  st@(State {..}) <- get
+  
+  return $ do
+    scale (fromIntegral _stScaleFactor) (fromIntegral _stScaleFactor)
+    s <- liftIO $ createImageSurfaceForData _stPixBuf FormatRGB24 _appWidth _appHeight _appStride
+    setSourceSurface s 0 0
+    paint
 
 -- GHC is much better at opimising loops like this:
 --

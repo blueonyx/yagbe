@@ -25,6 +25,7 @@ dependencies:
 - gtk3
 - cairo
 - time
+- lens
 
 ghc-options:
 - -Wall
