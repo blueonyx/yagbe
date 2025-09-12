@@ -43,7 +43,8 @@ data State = State
   , _stBlue        :: !CUChar
   , _stDir         :: !Bool
   , _stFrames      :: !Int
-  , _stLastTime    :: !UTCTime
+  , _stLastSec     :: !UTCTime
+  , _stLastFrame   :: !UTCTime
   }
   
 

@@ -73,7 +73,8 @@ main = do
                     _stBlue = 0,
                     _stDir = True,
                     _stFrames = 0,
-                    _stLastTime = now
+                    _stLastSec = now,
+                    _stLastFrame = now
                   }                   
                   
   lo <- logOptionsHandle stderr (optionsVerbose options)
@@ -111,7 +112,7 @@ main' = do
   registerKeyPress
   
   liftIO $ do
-    GTK.idleAdd (runRIO app updateBlue) GTK.priorityLow
+    GTK.idleAdd (runRIO app updateBlue) GTK.priorityDefaultIdle --Low
     
     GTK.on _appCanvas GTK.draw (join $ runRIO app updateCanvas)
     GTK.on _appWindow GTK.objectDestroy destroyEventHandler
@@ -157,13 +158,26 @@ updateBlue = do
 
   -- update frame counter
   now <- liftIO $ getCurrentTime
-  if diffUTCTime now _stLastTime >= 1.000 then do
+  if diffUTCTime now _stLastSec >= 1.000 then do
     logInfo $ display _stFrames
     stFrames %= const 0
-    stLastTime %= const now
+    stLastSec %= const now
   else do
     stFrames %= (+1)
 
+  -- delay to a maximum of 60 fps
+  -- (prevents more blue steps, when switching scaleFactor)
+  -- (60 fps is never reached, since this is only called via GTK.idleAdd)
+  -- (with higher prio other stuff stops working (canvas rendering, event handling upto window creation))
+  let delayFrame = do
+        now <- liftIO $ getCurrentTime
+        if diffUTCTime now _stLastFrame >= 1/60.0 then do
+          stLastFrame %= const now
+        else do
+          liftIO $ threadDelay 500
+          delayFrame
+      
+  delayFrame
   return True
 
 updateCanvas :: RIO App (Render ())
