@@ -12,7 +12,7 @@ import RIO.Process
 import RIO.State
 import Options.Applicative.Simple
 import qualified Paths_yagbe
-import Control.Lens hiding (argument)
+import Control.Lens hiding (argument, (^.))
 
 import Prelude (print)
 import qualified Graphics.UI.Gtk as GTK 
@@ -48,12 +48,12 @@ main = do
     )
     empty
   
+  -- default gb display size
   let w = 160
       h = 144
-      -- chan is 4 byte even for (1 byte unused)
+      -- chan is 4 byte even for 24bit (1 byte unused)
       chan = 4
       row = w * chan
-      stride = row
 
   -- initialize the Pixbuf
   pbData <- liftIO $ mallocArray (w * h * chan)
@@ -85,7 +85,6 @@ main = do
   canvas <- GTK.drawingAreaNew
   GTK.set window [GTK.windowDefaultWidth := w*_stScaleFactor initState,
               GTK.windowDefaultHeight := h*_stScaleFactor initState,
-              --windowWindowPosition := WinPosCenter,
               GTK.windowTitle := ("YAGBE"::String),
               GTK.containerChild := canvas]
   
@@ -99,7 +98,6 @@ main = do
           , _appHeight = h
           , _appChan  = chan
           , _appRow = row
-          , _appStride = stride
           , _appWindow = window
           , _appCanvas = canvas
           }
@@ -110,12 +108,14 @@ main' = do
   app@(App  {..}) <- ask
   st@(State {..}) <- get
   
+  registerKeyPress
+  
   liftIO $ do
     GTK.idleAdd (runRIO app updateBlue) GTK.priorityLow
     
     GTK.on _appCanvas GTK.draw (join $ runRIO app updateCanvas)
     GTK.on _appWindow GTK.objectDestroy destroyEventHandler
-    keyPress _appWindow
+    
     --onDestroy window mainQuit 
     --boxPackStart contain canvas PackGrow 0
     GTK.widgetShow _appCanvas
@@ -127,39 +127,45 @@ updateBlue :: RIO App Bool
 updateBlue = do
   app@(App  {..}) <- ask
   st@(State {..}) <- get
-          
-  -- print blue
+
+  -- set blue according to state and force window redraw
   liftIO $ 
     doFromTo 0 (_appHeight-1) $ \y ->
       doFromTo 0 (_appWidth-1) $ \x ->
-        pokeByteOff _stPixBuf (0+x*_appChan+y*_appRow) _stBlue  -- unchecked indexing
+        pokeByteOff (st^.stPixBuf) (0+x*app^.appChan+y*app^.appRow) (st^.stBlue)  -- unchecked indexing
     
   -- arrange for the canvas to be redrawn now that we've changed
   -- the Pixbuf
   liftIO $ GTK.widgetQueueDraw _appCanvas
     
   -- update the blue state ready for next time
+  -- change blue value from 'minBound' to 'maxBound' in steps of 'diff'
   let diff = 1
-  let blue' = if _stDir then _stBlue+diff else _stBlue-diff
-  if _stDir then
-    if _stBlue<=maxBound-diff then stBlue %= const blue' else do
+    
+  if _stDir then 
+    if _stBlue<=maxBound-diff then
+      stBlue %= (+diff)
+    else do
       stBlue %= const maxBound
-      stDir %= not
+      stDir  %= not
   else
-    if _stBlue>=minBound+diff then stBlue %= const blue' else do
+    if _stBlue>=minBound+diff then
+      stBlue %= (subtract diff)
+    else do
       stBlue %= const minBound
-      stDir %= not
-      
+      stDir  %= not
+
+  -- update frame counter
   now <- liftIO $ getCurrentTime
   if diffUTCTime now _stLastTime >= 1.000 then do
     logInfo $ display _stFrames
     stFrames %= const 0
     stLastTime %= const now
   else do
-    stFrames %= (1+)
+    stFrames %= (+1)
+
   return True
 
---updateCanvas :: _ -- (MonadIO m) => m ()
 updateCanvas :: RIO App (Render ())
 updateCanvas = do
   app@(App  {..}) <- ask
@@ -167,7 +173,7 @@ updateCanvas = do
   
   return $ do
     scale (fromIntegral _stScaleFactor) (fromIntegral _stScaleFactor)
-    s <- liftIO $ createImageSurfaceForData _stPixBuf FormatRGB24 _appWidth _appHeight _appStride
+    s <- liftIO $ createImageSurfaceForData _stPixBuf FormatRGB24 _appWidth _appHeight _appRow
     setSourceSurface s 0 0
     paint
 

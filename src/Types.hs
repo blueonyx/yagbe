@@ -30,7 +30,6 @@ data App = App
   , _appHeight         :: !Int
   , _appChan           :: !Int
   , _appRow            :: !Int
-  , _appStride         :: !Int
   , _appWindow         :: !Window
   , _appCanvas         :: !DrawingArea
   -- Add other app-specific configuration information here
