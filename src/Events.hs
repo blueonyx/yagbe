@@ -1,11 +1,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
-module Events where
+module Events 
+  ( destroyEventHandler
+  , registerKeyPress
+  ) where
 
 import Import
 
-import Control.Lens
-import RIO.State
 import qualified Graphics.UI.Gtk as GTK 
 
 -- quit on window close
@@ -15,8 +16,7 @@ destroyEventHandler = do
 
 registerKeyPress :: RIO App ()
 registerKeyPress = do
-  app@(App  {..}) <- ask
-  st@(State {..}) <- get
+  anw@(App  {..}) <- ask
   
   let kp = liftIO . void . GTK.on _appWindow GTK.keyPressEvent . GTK.tryEvent
   
@@ -28,18 +28,18 @@ registerKeyPress = do
   -- increase scaleFactor
   kp $ do
     "f" <- GTK.eventKeyName
-    liftIO $ runRIO app $ do
+    liftIO $ runRIO anw $ do
       sf <- stScaleFactor <%= (+1)
       liftIO $ GTK.windowResize _appWindow (_appWidth*sf) (_appHeight*sf)
   
   -- decrease scaleFactor
   kp $ do
     "g" <- GTK.eventKeyName
-    liftIO $ runRIO app $ do
+    liftIO $ runRIO anw $ do
       sf <- stScaleFactor <%= (\x -> if x > 1 then x-1 else x)
       liftIO $ GTK.windowResize _appWindow (_appWidth*sf) (_appHeight*sf)
 
   -- log keyPress
   kp $ do
     kv <- GTK.eventKeyName
-    liftIO $ runRIO app $ logInfo $ displayShow kv
+    liftIO $ runRIO anw $ logInfo $ displayShow kv

@@ -27,8 +27,9 @@ library
   exposed-modules:
       Events
       Import
-      Run
+      Init
       Types
+      Update
       Util
   other-modules:
       Paths_yagbe
