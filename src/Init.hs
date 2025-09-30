@@ -10,8 +10,8 @@ initGBE :: RIO App ()
 initGBE = do
   Zus {..} <- get
 
-  logInfo $ display $ length tiles
-  logInfo $ display $ length tilemap
+  --logInfo $ display $ length tiles
+  --logInfo $ display $ length tilemap
   
   liftIO $ do
     fillTileBuffer _stMemory tiles

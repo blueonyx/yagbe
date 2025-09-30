@@ -47,6 +47,7 @@ data Zus = Zus
   , _stLastFrame    :: !UTCTime
   , _stMemory       :: !(Ptr CUChar)
   , _stPaletteIndex :: !Int
+  , _stRenderBuffer :: !Bool
   }
 
 instance HasLogFunc App where
@@ -97,13 +98,26 @@ bgPalettes = [[ [255,255,255]
             , [0,0, 85]
             , [0,0,  0]
             ],
+            -- niceish blues?
+            [ [208,224,248]
+            , [112,136,192]
+            , [ 86, 52,104]
+            , [ 32,  8, 24]
+            ],
+            -- niceish blues?
+            [ [224,208,248]
+            , [136,112,192]
+            , [ 52, 86,104]
+            , [  8, 32, 24]
+            ],
 
+            -- simple greens
             [ [  0,255,  0]
             , [  0,170,  0]
             , [  0, 85,  0]
             , [  0, 30,  0]
             ],
-            
+            -- nice greens
             [ [224,248,208]
             , [136,192,112]
             , [ 52,104, 86]
@@ -137,7 +151,7 @@ bgPalettes = [[ [255,255,255]
             ]
 
 bgPaletteCount :: Int
-bgPaletteCount = 8
+bgPaletteCount = 10
 
 makeClassy ''App
 makeClassy ''Zus

@@ -48,7 +48,7 @@ main = do
       row = w * chan
 
   -- initialize the Pixbuf
-  pbData <- liftIO $ mallocArray (w * h * chan)
+  pbData <- mallocArray (w * h * chan)
 
   doFromTo 0 (h-1) $ \y ->
     doFromTo 0 (w-1) $ \x -> do
@@ -58,7 +58,7 @@ main = do
       pokeByteOff pbData (0+x*chan+y*row) (0 :: CUChar)
 
   -- initialize the memory (all theoretical 65KiB)
-  memory <- liftIO $ mallocArray (2^16)
+  memory <- mallocArray (2^16)
 
   now <- getCurrentTime
   
@@ -71,7 +71,8 @@ main = do
                     _stLastSec = now,
                     _stLastFrame = now,
                     _stMemory = memory,
-                    _stPaletteIndex = 0
+                    _stPaletteIndex = 5,
+                    _stRenderBuffer = False
                   }                   
                   
   lo <- logOptionsHandle stderr (optionsVerbose options)

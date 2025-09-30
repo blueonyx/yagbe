@@ -24,7 +24,7 @@ import RIO
 
 {-# INLINE doFromTo #-}
 -- do the action for [from..to], ie it's inclusive.
-doFromTo :: Int -> Int -> (Int -> IO ()) -> IO ()
+doFromTo :: (Monad m) => Int -> Int -> (Int -> m ()) -> m ()
 doFromTo from to action =
   let loop n | n > to   = return ()
              | otherwise = do action n
