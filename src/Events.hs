@@ -38,6 +38,18 @@ registerKeyPress = do
     liftIO $ runRIO anw $ do
       sf <- stScaleFactor <%= (\x -> if x > 1 then x-1 else x)
       liftIO $ GTK.windowResize _appWindow (_appWidth*sf) (_appHeight*sf)
+      
+  -- next bgPalette
+  kp $ do
+    "t" <- GTK.eventKeyName
+    liftIO $ runRIO anw $ 
+      stPaletteIndex %= (\x -> if x+1 == bgPaletteCount then 0 else x+1)
+
+  -- prev bgPalette
+  kp $ do
+    "r" <- GTK.eventKeyName
+    liftIO $ runRIO anw $
+      stPaletteIndex %= (\x -> if x == 0 then bgPaletteCount-1 else x-1)
 
   -- log keyPress
   kp $ do

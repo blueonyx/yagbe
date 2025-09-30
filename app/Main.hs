@@ -53,9 +53,12 @@ main = do
   doFromTo 0 (h-1) $ \y ->
     doFromTo 0 (w-1) $ \x -> do
       --pokeByteOff pbData (1+x*chan+y*row) (fromIntegral 255 :: CUChar)
-      pokeByteOff pbData (2+x*chan+y*row) (fromIntegral x :: CUChar)
-      pokeByteOff pbData (1+x*chan+y*row) (fromIntegral y :: CUChar)
+      pokeByteOff pbData (2+x*chan+y*row) (0::CUChar)--fromIntegral x :: CUChar)
+      pokeByteOff pbData (1+x*chan+y*row) (0::CUChar)--fromIntegral y :: CUChar)
       pokeByteOff pbData (0+x*chan+y*row) (0 :: CUChar)
+
+  -- initialize the memory (all theoretical 65KiB)
+  memory <- liftIO $ mallocArray (2^16)
 
   now <- getCurrentTime
   
@@ -66,7 +69,9 @@ main = do
                     _stDir = True,
                     _stFrames = 0,
                     _stLastSec = now,
-                    _stLastFrame = now
+                    _stLastFrame = now,
+                    _stMemory = memory,
+                    _stPaletteIndex = 0
                   }                   
                   
   lo <- logOptionsHandle stderr (optionsVerbose options)

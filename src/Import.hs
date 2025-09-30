@@ -6,6 +6,7 @@ module Import
   , module Types
   , mallocArray
   , Storable(..)
+  , Ptr
   , CUChar
   , (%=)
   , (.=)
@@ -24,5 +25,6 @@ import Types
 
 import Foreign (mallocArray)
 import Foreign.Storable (Storable(..))
+import Foreign.Ptr (Ptr)
 import Foreign.C (CUChar)
 
