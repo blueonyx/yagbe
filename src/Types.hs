@@ -58,8 +58,8 @@ instance HasStateRef Zus App where
   stateRefL = lens _appState (\x y -> x { _appState = y })
 
 -- constant game boy addresses
-tileBufferAddress :: Int
-tileBufferAddress = 0x9000
+bgTileBufferAddress :: Int
+bgTileBufferAddress = 0x9000
 
 -- https://gbdev.io/pandocs/Tile_Maps.html
 -- The Game Boy contains two 32×32 tile maps in VRAM at the memory areas $9800-$9BFF and $9C00-$9FFF.
@@ -69,8 +69,18 @@ tileBufferAddress = 0x9000
 -- Each tile map contains the 1-byte indexes of the tiles to be displayed.
 -- Tiles are obtained from the Tile Data Table using either of the two addressing modes (described in VRAM Tile Data), which can be selected via the LCDC register.
 -- Since one tile has 8×8 pixels, each map holds a 256×256 pixels picture. Only 160×144 (20x18 tiles) of those pixels are displayed on the LCD at any given time.
-tileMapAddress :: Int
-tileMapAddress = 0x9800
+bgTileMapAddress :: Int
+bgTileMapAddress = 0x9800
+
+-- Object Attribute memory
+-- https://gbdev.io/gb-asm-tutorial/part2/objects.html
+-- https://gbdev.io/pandocs/OAM.html
+-- 4 bytes per object: y,x,tile,attributes
+oamAddress :: Int
+oamAddress = 0xFE00
+
+objTileBufferAddress :: Int
+objTileBufferAddress = 0x8000
 
 -- BG palette data 
 --              7  6 5  4 3  2 1  0

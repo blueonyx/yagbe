@@ -1,9 +1,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE RecordWildCards #-}
-module Main (main) where
- 
+{-# LANGUAGE RecordWildCards #-} 
 import Import
 import Update
 import Init
@@ -58,7 +56,7 @@ main = do
       pokeByteOff pbData (0+x*chan+y*row) (0 :: CUChar)
 
   -- initialize the memory (all theoretical 65KiB)
-  memory <- mallocArray (2^16)
+  memory <- mallocArray (2^(16::Int))
 
   now <- getCurrentTime
   

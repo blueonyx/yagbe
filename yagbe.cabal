@@ -25,6 +25,7 @@ source-repository head
 
 library
   exposed-modules:
+      Bitmap
       Events
       Import
       Init
@@ -47,8 +48,27 @@ library
     , time
   default-language: Haskell2010
 
+executable bitmap-exe
+  main-is: bitmap.hs
+  other-modules:
+      Paths_yagbe
+  autogen-modules:
+      Paths_yagbe
+  hs-source-dirs:
+      app
+  ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.11 && <10
+    , cairo
+    , gtk3
+    , lens
+    , rio >=0.1.12.0
+    , time
+    , yagbe
+  default-language: Haskell2010
+
 executable yagbe-exe
-  main-is: Main.hs
+  main-is: main.hs
   other-modules:
       Paths_yagbe
   autogen-modules:

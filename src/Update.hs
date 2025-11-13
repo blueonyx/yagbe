@@ -8,7 +8,6 @@ import Import
 import Util
 
 import RIO.List.Partial ((!!))
-import Data.Bits (testBit)
 import qualified Graphics.UI.Gtk as GTK 
 import Graphics.Rendering.Cairo as C
 
@@ -20,8 +19,11 @@ updateMain = do
   App {..} <- ask
   Zus {..} <- get
 
-  when   _stRenderBuffer $ renderTileBuffer
-  unless _stRenderBuffer $ renderTileMap
+  -- render background tile buffer or background
+  when   _stRenderBuffer $ renderBgTileBuffer
+  unless _stRenderBuffer $ renderBgTileMap
+  
+  renderObjs
 
   --setBlueVal
   
@@ -35,8 +37,8 @@ updateMain = do
   return True
 
 -- write tiles according to tilemap and palette from _stMemory into _stMemory
-renderTileMap :: RIO App ()
-renderTileMap = do
+renderBgTileMap :: RIO App ()
+renderBgTileMap = do
   App {..} <- ask
   Zus {..} <- get
 
@@ -46,9 +48,9 @@ renderTileMap = do
   doFromTo 0 17 $ \y -> do
     doFromTo 0 19 $ \x -> do
       -- the tileMap is actually 32x32 tiles, although only 20x18 can be displayed
-      (tileIndex :: CUChar) <- liftIO $ peekByteOff _stMemory $ tileMapAddress+y*32+x
+      (tileIndex :: CUChar) <- liftIO $ peekByteOff _stMemory $ bgTileMapAddress+y*32+x
 
-      renderTile (tileIndexToAddr $ fromIntegral tileIndex) x y
+      renderTile (bgTileIndexToAddr $ fromIntegral tileIndex) (x*8) (y*8)
 
 -- render the tile at addr to position (x,y) in Pixbuf
 renderTile :: Int -> Int -> Int -> RIO App ()
@@ -66,30 +68,32 @@ renderTile addr x y = do
             [r,g,b] = (bgPalettes !! _stPaletteIndex) !! paletteIndex
 
         -- set the right colors in the pixbuf
-        pokeByteOff _stPixBuf (0+(x*8+col)*_appChan+(y*8+row)*_appRow) b
-        pokeByteOff _stPixBuf (1+(x*8+col)*_appChan+(y*8+row)*_appRow) g
-        pokeByteOff _stPixBuf (2+(x*8+col)*_appChan+(y*8+row)*_appRow) r
-
--- combine the 2 bit paletteIndex from the 2 bytes of a row of tile Data
--- https://gbdev.io/pandocs/Tile_Data.html
--- note to switch endianess of col
-paletteIndexAt :: CUChar -> CUChar -> Int -> Int
-paletteIndexAt low high col =
-  2*(fromEnum $ high `testBit` col') + (fromEnum $ low `testBit` col')
-    where col' = 7-col
-
--- tiles are 16 bytes and start at tileBufferAddress
-tileIndexToAddr :: Int -> Int
-tileIndexToAddr i = tileBufferAddress + 16*fromIntegral i
+        pokeByteOff _stPixBuf (0+(x+col)*_appChan+(y+row)*_appRow) b
+        pokeByteOff _stPixBuf (1+(x+col)*_appChan+(y+row)*_appRow) g
+        pokeByteOff _stPixBuf (2+(x+col)*_appChan+(y+row)*_appRow) r
 
 -- write tiles according to tilebuffer and palette from _stMemory into _stMemory
 -- so just rendering the tiles 0..20*18-1
-renderTileBuffer :: RIO App ()
-renderTileBuffer = do
+renderBgTileBuffer :: RIO App ()
+renderBgTileBuffer = do
   doFromTo 0 17 $ \y -> do
     doFromTo 0 19 $ \x -> do
-      let tileAddr = tileIndexToAddr $ y*20+x
-      renderTile tileAddr x y
+      let tileAddr = bgTileIndexToAddr $ y*20+x
+      renderTile tileAddr (x*8) (y*8)
+
+renderObjs :: RIO App ()
+renderObjs = do
+  Zus {..} <- get
+
+  doFromTo 0 39 $ \id' -> do
+    let getByte n = liftIO $ peekByteOff _stMemory $ oamAddress+id'*4+n
+    
+    (y :: CUChar) <- getByte 0
+    (x :: CUChar) <- getByte 1
+    (tileIndex :: CUChar) <- getByte 2
+    (attrs :: CUChar) <- getByte 3
+    
+    renderTile (objTileIndexToAddr $ fromIntegral tileIndex) (fromIntegral x -8) (fromIntegral y -8)
 
 -- fill change Pixbuf with new blue value
 setBlueVal :: RIO App ()
@@ -159,5 +163,11 @@ updateCanvas = do
     C.scale (fromIntegral _stScaleFactor) (fromIntegral _stScaleFactor)
     s <- liftIO $ C.createImageSurfaceForData _stPixBuf C.FormatRGB24 _appWidth _appHeight _appRow
     C.setSourceSurface s 0 0
+    
+    -- remove antialising
+    -- thanks https://stackoverflow.com/a/58330492
+    p <- C.getSource
+    C.patternSetFilter p FilterNearest
+    
     C.paint
 
